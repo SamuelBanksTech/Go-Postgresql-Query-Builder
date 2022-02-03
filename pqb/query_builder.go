@@ -16,8 +16,8 @@ package pqb
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"regexp"
+	"samuelbanks.net/postgres-query-builder/pqbHelpers"
 	"strconv"
 	"strings"
 )
@@ -45,7 +45,7 @@ func (s *Sqlbuilder) From(schemaTable string) *Sqlbuilder {
 	return s
 }
 
-// If deleteing from a table use this instead of the above From command
+// DeleteFrom If deleteing from a table use this instead of the above From command
 // Usage "xxx.DeleteFrom(`myschema.mytable`)"
 func (s *Sqlbuilder) DeleteFrom(schemaTable string) *Sqlbuilder {
 	s.deletefromStmt = s.formatSchema(schemaTable)
@@ -53,7 +53,7 @@ func (s *Sqlbuilder) DeleteFrom(schemaTable string) *Sqlbuilder {
 	return s
 }
 
-// Raw Select query, for use when doing advanced selects (usually CASE WHEN etc) without any helper intervention
+// SelectRaw query, for use when doing advanced selects (usually CASE WHEN etc) without any helper intervention
 // Usage "xxx.From(`myschema.mytable`).SelectRaw(`CASE blah blah blah blah`)"
 func (s *Sqlbuilder) SelectRaw(selectStmt string) *Sqlbuilder {
 	re := regexp.MustCompile(`\r?\n`)
@@ -92,16 +92,15 @@ func (s *Sqlbuilder) Where(column string, operator string, value string) *Sqlbui
 	case `BETWEEN`:
 		re := regexp.MustCompile("and|AND|And")
 		vp := re.Split(value, -1)
-
 		value = ``
 
 		for _, v := range vp {
-			value += sanitiseString(`'`+strings.TrimSpace(v)+`'`) + ` AND `
+			value += pqbHelpers.SanitiseString(`'`+strings.TrimSpace(v)+`'`) + ` AND `
 		}
 
 		value = strings.TrimSuffix(value, ` AND `)
 	default:
-		value = sanitiseString(`'` + value + `'`)
+		value = pqbHelpers.SanitiseString(`'` + value + `'`)
 	}
 
 	s.whereStmt += s.formatSchema(column) + " " + operator + " " + value + ` AND `
@@ -110,6 +109,7 @@ func (s *Sqlbuilder) Where(column string, operator string, value string) *Sqlbui
 }
 
 // WhereRaw for unfiltered advanced where quires not covered in the above command
+// Usage "xxx.From(`myschema.mytable`).WhereRaw(`WHERE SOME COMPLEX QUERY`)"
 func (s *Sqlbuilder) WhereRaw(whereStmt string) *Sqlbuilder {
 	s.whereStmt += whereStmt + ` AND `
 	return s
@@ -128,13 +128,13 @@ func (s *Sqlbuilder) WhereIn(column string, params interface{}) *Sqlbuilder {
 	case []string:
 		output += "("
 		for _, v := range foo {
-			output += "'" + sanitiseString(v) + "', "
+			output += "'" + pqbHelpers.SanitiseString(v) + "', "
 		}
 		output = strings.TrimSuffix(output, ", ")
 		output += ")"
 		break
 	case string:
-		output = "(" + sanitiseString(foo) + ")"
+		output = "(" + pqbHelpers.SanitiseString(foo) + ")"
 		break
 	default:
 		output = ""
@@ -147,7 +147,7 @@ func (s *Sqlbuilder) WhereIn(column string, params interface{}) *Sqlbuilder {
 	return s
 }
 
-// Used for psudo full text search, this funtion can (case insensitivly) find a string within a string in postgres
+// WhereStringMatchAny is used for psudo full text search, this funtion can (case insensitivly) find a string within a string in postgres
 // It will return any rows that have at least one of the string in the slice
 // Usage "xxx.From(`myschema.mytable`).WhereStringMatchAny(`name`, []string{"bob", "BILLY"})
 func (s *Sqlbuilder) WhereStringMatchAny(column string, params []string) *Sqlbuilder {
@@ -156,7 +156,7 @@ func (s *Sqlbuilder) WhereStringMatchAny(column string, params []string) *Sqlbui
 
 	output += "(array["
 	for _, v := range params {
-		output += "'%" + sanitiseString(strings.TrimSpace(v)) + "%', "
+		output += "'%" + pqbHelpers.SanitiseString(strings.TrimSpace(v)) + "%', "
 	}
 	output = strings.TrimSuffix(output, ", ")
 	output += "])"
@@ -168,7 +168,7 @@ func (s *Sqlbuilder) WhereStringMatchAny(column string, params []string) *Sqlbui
 	return s
 }
 
-// Used for psudo full text search, this funtion can (case insensitivly) find a string within a string in postgres
+// WhereStringMatchAll is used for psudo full text search, this funtion can (case insensitivly) find a string within a string in postgres
 // It will only return rows that have ALL of the strings in the slice
 // Usage "xxx.From(`myschema.mytable`).WhereStringMatchAny(`name`, []string{"bob", "BILLY"})
 func (s *Sqlbuilder) WhereStringMatchAll(column string, params []string) *Sqlbuilder {
@@ -177,7 +177,7 @@ func (s *Sqlbuilder) WhereStringMatchAll(column string, params []string) *Sqlbui
 
 	output += "'"
 	for _, v := range params {
-		output += "%" + sanitiseString(strings.TrimSpace(v)) + "% "
+		output += "%" + pqbHelpers.SanitiseString(strings.TrimSpace(v)) + "% "
 	}
 	output = strings.TrimSuffix(output, " ")
 	output += "'"
@@ -189,6 +189,8 @@ func (s *Sqlbuilder) WhereStringMatchAll(column string, params []string) *Sqlbui
 	return s
 }
 
+// LeftJoin for joining another table linked by a condition
+// Usage "xxx.From(`myschema.mytable`).LeftJoin(`myschema.myothertable`, `mot`, `myschema.mytable.mot_id = mot.id`)
 func (s *Sqlbuilder) LeftJoin(table string, as string, on string) *Sqlbuilder {
 
 	table = s.formatSchema(table)
@@ -199,6 +201,8 @@ func (s *Sqlbuilder) LeftJoin(table string, as string, on string) *Sqlbuilder {
 	return s
 }
 
+// LeftJoinExtended for joining another table linked by a condition with advance additional commands
+// Usage "xxx.From(`myschema.mytable`).LeftJoinExtended(`myschema.myothertable`, `mot`, `myschema.mytable.mot_id = mot.id`, `AND mod.limitingvalue BETWEEN 10 AND 50`)
 func (s *Sqlbuilder) LeftJoinExtended(table string, as string, on string, additionalQuery string) *Sqlbuilder {
 
 	table = s.formatSchema(table)
@@ -208,25 +212,31 @@ func (s *Sqlbuilder) LeftJoinExtended(table string, as string, on string, additi
 	return s
 }
 
+// Limit the amount of rows returned
+// Usage "xxx.From(`myschema.mytable`).Select(`id`, `name`).Limit(10)
 func (s *Sqlbuilder) Limit(limit int) *Sqlbuilder {
 	s.limitStmt = `LIMIT ` + strconv.Itoa(limit) + ` `
 
 	return s
 }
 
+// Offset the selection of rows used in conjustion with limit
+// Usage "xxx.From(`myschema.mytable`).Select(`id`, `name`).Limit(10).Offset(20)
 func (s *Sqlbuilder) Offset(offset int) *Sqlbuilder {
 	s.offsetStmt = `OFFSET ` + strconv.Itoa(offset) + ` `
 
 	return s
 }
 
+// OrderBy order the returned rows by a column in ASC (ascending) or DESC (descending) order
+// Usage "xxx.From(`myschema.mytable`).Select(`id`, `name`).OrderBy(`id`, `DESC`)
 func (s *Sqlbuilder) OrderBy(column string, diretion string) *Sqlbuilder {
-
 	s.orderbyStmt = `ORDER BY "` + column + `" ` + diretion
 
 	return s
 }
 
+// Reset clears any previously defined query parts, allows the reuse of an instance
 func (s *Sqlbuilder) Reset() *Sqlbuilder {
 	s.string = ``
 	s.selectStmt = ``
@@ -241,6 +251,8 @@ func (s *Sqlbuilder) Reset() *Sqlbuilder {
 	return s
 }
 
+// Count allows the result of a query to be returned as a numeric amount rather than the actual rows
+// You can call count instead of build or you can call count then conditionally call build afterwards
 func (s *Sqlbuilder) Count() string {
 	sqlquery := s.Build()
 
@@ -248,7 +260,6 @@ func (s *Sqlbuilder) Count() string {
 
 	return countQuery
 }
-
 func (s *Sqlbuilder) Exists() string {
 	sqlquery := s.Build()
 
@@ -257,6 +268,8 @@ func (s *Sqlbuilder) Exists() string {
 	return existsQuery
 }
 
+// Build is the main function of the query builder, it is the final function that takes all the query parts and puts them together
+// in a sanitised query ready for passing to a database connection
 func (s *Sqlbuilder) Build() string {
 
 	//build selects
@@ -310,8 +323,11 @@ func (s *Sqlbuilder) Build() string {
 	return returnString
 }
 
+// BuildInsert is a very simple yet powerful feature that saves a lot of time, you simply pass a schema and table ref and a struct of data
+// the builder will automatically build the insert based on the struct value names and values if the field tag of "pqb" is used one can
+// override the struct name
 func (s *Sqlbuilder) BuildInsert(table string, data interface{}, additionalQuery string) (string, error) {
-	dbCols, dbVals, err := mapStruct(data)
+	dbCols, dbVals, err := pqbHelpers.MapStruct(data)
 	if err != nil {
 		return "", err
 	}
@@ -321,9 +337,11 @@ func (s *Sqlbuilder) BuildInsert(table string, data interface{}, additionalQuery
 	return sql, nil
 }
 
-func (s *Sqlbuilder) BuildUpdate(table string, data interface{}, additionalQuery string) (string, error) {
+// BuildUpdate like the buildinsert takes a table and a struct of data, however unlike buildinsert buildupdate will look to replace all
+// matching column names always best to ensure to use a Where query part to avoid accidental data loss
+func (s *Sqlbuilder) BuildUpdate(table string, data interface{}) (string, error) {
 
-	dbCols, dbVals, err := mapStruct(data)
+	dbCols, dbVals, err := pqbHelpers.MapStruct(data)
 	if err != nil {
 		return "", err
 	}
@@ -342,8 +360,6 @@ func (s *Sqlbuilder) BuildUpdate(table string, data interface{}, additionalQuery
 		if s.whereStmt != `` {
 			sql += `WHERE ` + strings.TrimSuffix(s.whereStmt, ` AND `) + ` `
 		}
-
-		sql += additionalQuery
 
 		return sql, nil
 	}
@@ -387,6 +403,7 @@ func (s *Sqlbuilder) formatSchema(schema string) string {
 	return strings.TrimSuffix(finalSchemaStmt, `.`)
 }
 
+// used to ensure the correct formatting for the ON part of a join query
 func (s *Sqlbuilder) formatJoinOn(joinStmt string) string {
 	joinParts := strings.Split(joinStmt, "=")
 	finalJoinStmt := ``
@@ -396,84 +413,4 @@ func (s *Sqlbuilder) formatJoinOn(joinStmt string) string {
 	}
 
 	return strings.TrimSuffix(finalJoinStmt, ` = `)
-}
-
-var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
-var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
-
-func toSnakeCase(str string) string {
-	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
-	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
-	return strings.ToLower(snake)
-}
-
-func mapStruct(data interface{}) (dbCols []string, dbVals []string, error error) {
-	fields := reflect.TypeOf(data)
-	values := reflect.ValueOf(data)
-
-	num := fields.NumField()
-
-	for i := 0; i < num; i++ {
-		field := fields.Field(i)
-		value := values.Field(i)
-
-		val, exists := field.Tag.Lookup("sqlb")
-
-		if exists {
-			dbCols = append(dbCols, "\""+val+"\"")
-		} else {
-			dbCols = append(dbCols, "\""+toSnakeCase(field.Name)+"\"")
-		}
-
-		var v string
-
-		switch value.Kind() {
-		case reflect.String:
-			v = "'" + sanitiseString(value.String()) + "'"
-		case reflect.Int:
-			v = strconv.FormatInt(value.Int(), 10)
-		case reflect.Int8:
-			v = strconv.FormatInt(value.Int(), 10)
-		case reflect.Int32:
-			v = strconv.FormatInt(value.Int(), 10)
-		case reflect.Int64:
-			v = strconv.FormatInt(value.Int(), 10)
-		case reflect.Float64:
-			v = fmt.Sprintf("%f", value.Float())
-		case reflect.Float32:
-			v = fmt.Sprintf("%f", value.Float())
-		case reflect.Bool:
-			if value.Bool() {
-				v = "TRUE"
-			} else {
-				v = "FALSE"
-			}
-		default:
-			return dbCols, dbVals, errors.New("type: " + value.Kind().String() + " unsupported")
-		}
-
-		dbVals = append(dbVals, v)
-	}
-
-	return dbCols, dbVals, nil
-}
-
-func sanitiseString(str string) string {
-
-	if len(str) > 0 {
-		rebuildSingles := false
-
-		if string(str[0]) == "'" && string(str[len(str)-1]) == "'" {
-			rebuildSingles = true
-		}
-
-		str = strings.TrimSuffix(strings.TrimPrefix(str, "'"), "'")
-		str = strings.ReplaceAll(str, "'", "''")
-
-		if rebuildSingles {
-			str = "'" + str + "'"
-		}
-	}
-
-	return str
 }

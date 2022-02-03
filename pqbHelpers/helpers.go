@@ -1,0 +1,96 @@
+package pqbHelpers
+
+import (
+	"errors"
+	"fmt"
+	"reflect"
+	"regexp"
+	"strconv"
+	"strings"
+)
+
+var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
+
+// ToSnakeCase simple function to return snake case from a string
+func ToSnakeCase(str string) string {
+	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
+	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
+	return strings.ToLower(snake)
+}
+
+// MapStruct takes a struct of data and outputs two string slices (regardless of struct values)
+// first is the db column names taken from the stuct names or overridden if the field tag "pqb" is used on the struct value
+// the second is the value in the corresponding index
+func MapStruct(data interface{}) (dbCols []string, dbVals []string, error error) {
+	fields := reflect.TypeOf(data)
+	values := reflect.ValueOf(data)
+
+	num := fields.NumField()
+
+	for i := 0; i < num; i++ {
+		field := fields.Field(i)
+		value := values.Field(i)
+
+		val, exists := field.Tag.Lookup("pqb")
+
+		if exists {
+			dbCols = append(dbCols, "\""+val+"\"")
+		} else {
+			dbCols = append(dbCols, "\""+ToSnakeCase(field.Name)+"\"")
+		}
+
+		var v string
+
+		switch value.Kind() {
+		case reflect.String:
+			v = "'" + SanitiseString(value.String()) + "'"
+		case reflect.Int:
+			v = strconv.FormatInt(value.Int(), 10)
+		case reflect.Int8:
+			v = strconv.FormatInt(value.Int(), 10)
+		case reflect.Int32:
+			v = strconv.FormatInt(value.Int(), 10)
+		case reflect.Int64:
+			v = strconv.FormatInt(value.Int(), 10)
+		case reflect.Float64:
+			v = fmt.Sprintf("%f", value.Float())
+		case reflect.Float32:
+			v = fmt.Sprintf("%f", value.Float())
+		case reflect.Bool:
+			if value.Bool() {
+				v = "TRUE"
+			} else {
+				v = "FALSE"
+			}
+		default:
+			return dbCols, dbVals, errors.New("type: " + value.Kind().String() + " unsupported")
+		}
+
+		dbVals = append(dbVals, v)
+	}
+
+	return dbCols, dbVals, nil
+}
+
+// SanitiseString this is the first step in adding some much needed security
+// right now this just cleans end ensures user strings a clean
+func SanitiseString(str string) string {
+
+	if len(str) > 0 {
+		rebuildSingles := false
+
+		if string(str[0]) == "'" && string(str[len(str)-1]) == "'" {
+			rebuildSingles = true
+		}
+
+		str = strings.TrimSuffix(strings.TrimPrefix(str, "'"), "'")
+		str = strings.ReplaceAll(str, "'", "''")
+
+		if rebuildSingles {
+			str = "'" + str + "'"
+		}
+	}
+
+	return str
+}
