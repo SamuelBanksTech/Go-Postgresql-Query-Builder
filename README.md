@@ -51,6 +51,10 @@ func main() {
 	fmt.Println(name, weight)
 }
 ```
+Query Output:
+
+`SELECT "name", "weight" FROM "myschema"."widgets" WHERE "id" = '1'`
+
 
 
 #### Slightly More Advanced Example
@@ -101,6 +105,9 @@ func main() {
 	}
 }
 ```
+Query Output:
+
+`SELECT "myschema"."tasks"."task_details", "users"."name", "users"."email" FROM "myschema"."tasks" LEFT JOIN "myschema"."users" AS "users" ON "myschema"."tasks"."user_id" = "users"."id" WHERE "users"."active" = '1' AND "myschema"."tasks"."completed" = '0'`
 
 
 #### Insert Example
@@ -118,7 +125,7 @@ import (
 
 type BookData struct {
 	Title string
-	Author string `pqb:"writer"`
+	Author string `pqb:"writer"` // notice the pqb field tag override
 }
 
 func main() {
@@ -136,7 +143,7 @@ func main() {
 	}
 	
 	var qb pqb.Sqlbuilder
-	pgQuery, err := qb.BuildInsert(`myschema.books`, bd)
+	pgQuery, err := qb.BuildInsert(`myschema.books`, bd, ``)
 	if err != nil {
 		log.Fatal(err)
     }
@@ -147,3 +154,6 @@ func main() {
     }
 }
 ```
+Query Output:
+
+`INSERT INTO "myschema"."books" ("title", "author") VALUES ('Revenge of the Gophers', 'Mr Cool Dev') `
