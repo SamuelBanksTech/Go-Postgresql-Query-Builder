@@ -156,4 +156,4 @@ func main() {
 ```
 Query Output:
 
-`INSERT INTO "myschema"."books" ("title", "author") VALUES ('Revenge of the Gophers', 'Mr Cool Dev') `
+`INSERT INTO "myschema"."books" ("title", "writer") VALUES ('Revenge of the Gophers', 'Mr Cool Dev') `
