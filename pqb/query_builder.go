@@ -16,8 +16,8 @@ package pqb
 import (
 	"errors"
 	"fmt"
+	"github.com/SamuelBanksTech/Go-Postgresql-Query-Builder/pqbHelpers"
 	"regexp"
-	"samuelbanks.net/postgres-query-builder/pqbHelpers"
 	"strconv"
 	"strings"
 )

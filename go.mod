@@ -1,3 +1,3 @@
-module samuelbanks.net/postgres-query-builder
+module github.com/SamuelBanksTech/Go-Postgresql-Query-Builder
 
 go 1.16
