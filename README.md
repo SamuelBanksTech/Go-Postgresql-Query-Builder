@@ -207,7 +207,7 @@ func filterQuery(filters SearchFilters) (string, []interface{}) {
 		authorSeachWords := strings.Fields(filters.AuthorSearch)
 
 		if !filters.IncludeAuthorDetails {
-			query.LeftJoin(`myschema.authors`, `authors`, `myschema.tasks.author_id = authors.id`)
+			query.LeftJoin(`myschema.authors`, `authors`, `myschema.books.author_id = authors.id`)
 		}
 
 		query.WhereStringMatchAny(`authors.name`, authorSeachWords)
