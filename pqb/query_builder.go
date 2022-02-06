@@ -38,7 +38,7 @@ type Sqlbuilder struct {
 	Distinct       bool
 }
 
-var queryArgs []string
+var queryArgs []interface{}
 
 // From portion of query:
 // Usage "xxx.From(`myschema.mytable`)"
@@ -318,14 +318,14 @@ func (s *Sqlbuilder) Reset() *Sqlbuilder {
 
 // Count allows the result of a query to be returned as a numeric amount rather than the actual rows
 // You can call count instead of build or you can call count then conditionally call build afterwards
-func (s *Sqlbuilder) Count() (string, []string) {
+func (s *Sqlbuilder) Count() (string, []interface{}) {
 	sqlquery, args := s.Build()
 
 	countQuery := `SELECT COUNT(*) AS rowcount FROM (` + sqlquery + `) AS rowdata`
 
 	return countQuery, args
 }
-func (s *Sqlbuilder) Exists() (string, []string) {
+func (s *Sqlbuilder) Exists() (string, []interface{}) {
 	sqlquery, args := s.Build()
 
 	existsQuery := `SELECT EXISTS (` + sqlquery + `)`
@@ -335,7 +335,7 @@ func (s *Sqlbuilder) Exists() (string, []string) {
 
 // Build is the main function of the query builder, it is the final function that takes all the query parts and puts them together
 // in a sanitised query ready for passing to a database connection
-func (s *Sqlbuilder) Build() (string, []string) {
+func (s *Sqlbuilder) Build() (string, []interface{}) {
 
 	//build selects
 	if s.deletefromStmt == `` {
