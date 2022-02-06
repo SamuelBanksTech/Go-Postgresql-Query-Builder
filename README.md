@@ -40,7 +40,7 @@ func main() {
 
 	var qb pqb.Sqlbuilder
 
-	pgQuery := qb.
+	pgQuery, queryArgs := qb.
 		From(`myschema.widgets`).
 		Select(`name`, `weight`).
 		Where(`id`, `=`, `1`).
@@ -48,7 +48,7 @@ func main() {
 
 	var name string
 	var weight int64
-	err = conn.QueryRow(context.Background(), pgQuery).Scan(&name, &weight)
+	err = conn.QueryRow(context.Background(), pgQuery, queryArgs...).Scan(&name, &weight)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "QueryRow failed: %v\n", err)
 		os.Exit(1)
@@ -87,7 +87,7 @@ func main() {
 
 	var qb pqb.Sqlbuilder
 
-	pgQuery := qb.
+	pgQuery, queryArgs := qb.
 		From(`myschema.tasks`).
 		LeftJoin(`myschema.users`, `users`, `myschema.tasks.user_id = users.id`).
 		Where(`users.active`, `=`, `1`).
@@ -96,7 +96,7 @@ func main() {
 		Build()
 
 
-	rows, _ := conn.Query(context.Background(), pgQuery)
+	rows, _ := conn.Query(context.Background(), pgQuery, queryArgs...)
 
 	for rows.Next() {
 		var taskData string
@@ -138,7 +138,7 @@ type SearchFilters struct {
 }
 
 func main() {
-        // urlExample := "postgres://username:password@localhost:5432/database_name"
+	urlExample := "postgres://username:password@localhost:5432/database_name"
 	conn, err := pgx.Connect(context.Background(), urlExample)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
@@ -153,11 +153,9 @@ func main() {
 		AuthorSearch:         "",
 	}
 
-	pgQuery := filterQuery(filters)
+	pgQuery, queryArgs := filterQuery(filters)
 
-	fmt.Println(pgQuery)
-
-	rows, _ := conn.Query(context.Background(), pgQuery)
+	rows, _ := conn.Query(context.Background(), pgQuery, queryArgs...)
 
 	for rows.Next() {
 		var bookId int
@@ -184,7 +182,7 @@ func main() {
 	}
 }
 
-func filterQuery(filters SearchFilters) string {
+func filterQuery(filters SearchFilters) (string, []interface{}) {
 
 	var query pqb.Sqlbuilder
 
@@ -217,6 +215,7 @@ func filterQuery(filters SearchFilters) string {
 
 	return query.Build()
 }
+
 
 ```
 Query Output:
