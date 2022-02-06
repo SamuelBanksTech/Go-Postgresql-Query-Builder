@@ -54,7 +54,7 @@ func (s *Sqlbuilder) DeleteFrom(schemaTable string) *Sqlbuilder {
 }
 
 // SelectRaw query, for use when doing advanced selects (usually CASE WHEN etc) without any helper intervention
-// Usage "xxx.From(`myschema.mytable`).SelectRaw(`CASE blah blah blah blah`)"
+// Usage "xxx.From(`myschema.mytable`).SelectRaw(`CASE blah blah blah`)"
 func (s *Sqlbuilder) SelectRaw(selectStmt string) *Sqlbuilder {
 	re := regexp.MustCompile(`\r?\n`)
 	selectStmt = re.ReplaceAllString(selectStmt, " ")
