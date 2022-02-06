@@ -22,6 +22,7 @@ import (
 	"strings"
 )
 
+// Sqlbuilder instanciate this struct and add query parts using attached methods, finally call Build, or use BuildInsert, BuildUpdate, or DeleteFrom
 type Sqlbuilder struct {
 	string         string
 	selectStmt     string
@@ -180,7 +181,7 @@ func (s *Sqlbuilder) WhereIn(column string, params interface{}) *Sqlbuilder {
 	return s
 }
 
-// WhereStringMatchAny is used for psudo full text search, this funtion can (case insensitivly) find a string within a string in postgres
+// WhereStringMatchAny is used for psudo full text search, this function can (case insensitivly) find a string within a string in postgres
 // It will return any rows that have at least one of the string in the slice
 // Usage "xxx.From(`myschema.mytable`).WhereStringMatchAny(`name`, []string{"bob", "BILLY"})
 func (s *Sqlbuilder) WhereStringMatchAny(column string, params []string) *Sqlbuilder {
@@ -201,7 +202,7 @@ func (s *Sqlbuilder) WhereStringMatchAny(column string, params []string) *Sqlbui
 	return s
 }
 
-// WhereStringMatchAll is used for psudo full text search, this funtion can (case insensitivly) find a string within a string in postgres
+// WhereStringMatchAll is used for psudo full text search, this function can (case insensitivly) find a string within a string in postgres
 // It will only return rows that have ALL of the strings in the slice
 // Usage "xxx.From(`myschema.mytable`).WhereStringMatchAny(`name`, []string{"bob", "BILLY"})
 func (s *Sqlbuilder) WhereStringMatchAll(column string, params []string) *Sqlbuilder {
@@ -400,7 +401,7 @@ func (s *Sqlbuilder) BuildUpdate(table string, data interface{}) (string, error)
 	return sql, errors.New("sql build failed")
 }
 
-// Based upon dialect this funtion will split a string schema-table reference into the correct
+// Based upon dialect this function will split a string schema-table reference into the correct
 // format required. e.g. `myschema.mytable` into "myschema"."mytable"
 func (s *Sqlbuilder) formatSchema(schema string) string {
 	schemaParts := strings.Split(schema, ".")
