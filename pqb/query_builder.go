@@ -108,6 +108,39 @@ func (s *Sqlbuilder) Where(column string, operator string, value string) *Sqlbui
 	return s
 }
 
+// OrWhere dependant on where it is called it will supersede all other where clauses that have been added before it
+// Usage "xxx.From(`myschema.mytable`).Where(`name`, `=`, `superman`).OrWhere(`name`, `=`, `spiderman`)"
+func (s *Sqlbuilder) OrWhere(column string, operator string, value string) *Sqlbuilder {
+
+	operator = strings.ToUpper(operator)
+	value = strings.TrimSuffix(value, `'`)
+	value = strings.TrimSuffix(value, `"`)
+	value = strings.TrimSuffix(value, "`")
+	value = strings.TrimPrefix(value, `'`)
+	value = strings.TrimPrefix(value, `"`)
+	value = strings.TrimPrefix(value, "`")
+
+	switch operator {
+	case `BETWEEN`:
+		re := regexp.MustCompile("and|AND|And")
+		vp := re.Split(value, -1)
+		value = ``
+
+		for _, v := range vp {
+			value += pqbHelpers.SanitiseString(`'`+strings.TrimSpace(v)+`'`) + ` AND `
+		}
+
+		value = strings.TrimSuffix(value, ` AND `)
+	default:
+		value = pqbHelpers.SanitiseString(`'` + value + `'`)
+	}
+
+	s.whereStmt = strings.TrimSuffix(s.whereStmt, ` AND `)
+	s.whereStmt += ` OR ` + s.formatSchema(column) + " " + operator + " " + value + ` AND `
+
+	return s
+}
+
 // WhereRaw for unfiltered advanced where quires not covered in the above command
 // Usage "xxx.From(`myschema.mytable`).WhereRaw(`WHERE SOME COMPLEX QUERY`)"
 func (s *Sqlbuilder) WhereRaw(whereStmt string) *Sqlbuilder {

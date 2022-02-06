@@ -116,6 +116,114 @@ Query Output:
 `SELECT "myschema"."tasks"."task_details", "users"."name", "users"."email" FROM "myschema"."tasks" LEFT JOIN "myschema"."users" AS "users" ON "myschema"."tasks"."user_id" = "users"."id" WHERE "users"."active" = '1' AND "myschema"."tasks"."completed" = '0'`
 
 
+
+#### Even More Advanced Example Using Programmatic Query Clauses 
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/SamuelBanksTech/Go-Postgresql-Query-Builder/pqb"
+	"github.com/jackc/pgx/v4"
+)
+
+type SearchFilters struct {
+	IncludeAuthorDetails bool
+	TitleSearch          string
+	AuthorSearch         string
+}
+
+func main() {
+        // urlExample := "postgres://username:password@localhost:5432/database_name"
+        conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+        if err != nil {
+            fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
+            os.Exit(1)
+        }
+		
+        defer conn.Close(context.Background())
+
+        filters := SearchFilters{
+            IncludeAuthorDetails: true,
+            TitleSearch:          "revenge gopher",
+            AuthorSearch:         "",
+        }
+	
+        pgQuery := filterQuery(filters)
+        
+        rows, _ := conn.Query(context.Background(), pgQuery)
+
+        for rows.Next() {
+            var bookId string
+            var bookTitle string
+            
+            if filters.IncludeAuthorDetails {
+                var authorName string
+                var authorEmail string
+                
+                err := rows.Scan(&bookId, &bookTitle, &authorName, &authorEmail)
+                if err != nil {
+                    log.Fatal(err)
+                }
+                fmt.Printf("%s - %s - %s - %s\n", bookId, bookTitle, authorName, authorEmail)
+                
+            } else {
+                err := rows.Scan(&bookId, &bookTitle)
+                if err != nil {
+                    log.Fatal(err)
+                }
+                fmt.Printf("%s - %s\n", bookId, bookTitle)
+                
+            }
+        }
+}
+
+func filterQuery(filters SearchFilters) string {
+        
+        var query pqb.Sqlbuilder
+        
+        query.
+            From(`myschema.books`).
+            Where(`myschema.books.deleted`, `=`, `0`).
+            Select(`myschema.books.id`, `myschema.books.Title`)
+        
+        if filters.IncludeAuthorDetails {
+            query.
+                LeftJoin(`myschema.authors`, `authors`, `myschema.tasks.author_id = authors.id`).
+                Select(`author.name`, `author.email`)
+        }
+        
+        if len(filters.TitleSearch) > 0 {
+            titleSearchWords := strings.Fields(filters.TitleSearch)
+            
+            query.WhereStringMatchAny(`myschema.books.title`, titleSearchWords) 
+        }
+        
+        
+        if len(filters.AuthorSearch) > 0 {
+            authorSeachWords := strings.Fields(filters.AuthorSearch)
+            
+            if !filters.IncludeAuthorDetails {
+                query.LeftJoin(`myschema.authors`, `authors`, `myschema.tasks.author_id = authors.id`)
+            }
+            
+            query.WhereStringMatchAny(`authors.name`, authorSeachWords)
+        }
+        
+        
+        return query.Build()
+}
+```
+Query Output:
+
+`SELECT "myschema"."books".*, "author"."name", "author"."email", "author"."phone" FROM "myschema"."books" LEFT JOIN "myschema"."authors" AS "authors" ON "myschema"."tasks"."author_id" = "authors"."id" WHERE "myschema"."books"."deleted" = '0' AND myschema.books.title ILIKE ANY (array['%revenge%', '%gopher%']) `
+
+
+
 #### Insert Example
 ```go
 package main
