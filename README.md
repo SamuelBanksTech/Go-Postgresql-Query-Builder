@@ -139,88 +139,89 @@ type SearchFilters struct {
 
 func main() {
         // urlExample := "postgres://username:password@localhost:5432/database_name"
-        conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
-        if err != nil {
-            fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
-            os.Exit(1)
-        }
-		
-        defer conn.Close(context.Background())
+	conn, err := pgx.Connect(context.Background(), urlExample)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
+		os.Exit(1)
+	}
 
-        filters := SearchFilters{
-            IncludeAuthorDetails: true,
-            TitleSearch:          "revenge gopher",
-            AuthorSearch:         "",
-        }
-	
-        pgQuery := filterQuery(filters)
-        
-        rows, _ := conn.Query(context.Background(), pgQuery)
+	defer conn.Close(context.Background())
 
-        for rows.Next() {
-            var bookId string
-            var bookTitle string
-            
-            if filters.IncludeAuthorDetails {
-                var authorName string
-                var authorEmail string
-                
-                err := rows.Scan(&bookId, &bookTitle, &authorName, &authorEmail)
-                if err != nil {
-                    log.Fatal(err)
-                }
-                fmt.Printf("%s - %s - %s - %s\n", bookId, bookTitle, authorName, authorEmail)
-                
-            } else {
-                err := rows.Scan(&bookId, &bookTitle)
-                if err != nil {
-                    log.Fatal(err)
-                }
-                fmt.Printf("%s - %s\n", bookId, bookTitle)
-                
-            }
-        }
+	filters := SearchFilters{
+		IncludeAuthorDetails: true,
+		TitleSearch:          "revenge gopher",
+		AuthorSearch:         "",
+	}
+
+	pgQuery := filterQuery(filters)
+
+	fmt.Println(pgQuery)
+
+	rows, _ := conn.Query(context.Background(), pgQuery)
+
+	for rows.Next() {
+		var bookId int
+		var bookTitle string
+
+		if filters.IncludeAuthorDetails {
+			var authorName string
+			var authorEmail string
+
+			err := rows.Scan(&bookId, &bookTitle, &authorName, &authorEmail)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("%d - %s - %s - %s\n", bookId, bookTitle, authorName, authorEmail)
+
+		} else {
+			err := rows.Scan(&bookId, &bookTitle)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("%d - %s\n", bookId, bookTitle)
+
+		}
+	}
 }
 
 func filterQuery(filters SearchFilters) string {
-        
-        var query pqb.Sqlbuilder
-        
-        query.
-            From(`myschema.books`).
-            Where(`myschema.books.deleted`, `=`, `0`).
-            Select(`myschema.books.id`, `myschema.books.Title`)
-        
-        if filters.IncludeAuthorDetails {
-            query.
-                LeftJoin(`myschema.authors`, `authors`, `myschema.tasks.author_id = authors.id`).
-                Select(`author.name`, `author.email`)
-        }
-        
-        if len(filters.TitleSearch) > 0 {
-            titleSearchWords := strings.Fields(filters.TitleSearch)
-            
-            query.WhereStringMatchAny(`myschema.books.title`, titleSearchWords) 
-        }
-        
-        
-        if len(filters.AuthorSearch) > 0 {
-            authorSeachWords := strings.Fields(filters.AuthorSearch)
-            
-            if !filters.IncludeAuthorDetails {
-                query.LeftJoin(`myschema.authors`, `authors`, `myschema.tasks.author_id = authors.id`)
-            }
-            
-            query.WhereStringMatchAny(`authors.name`, authorSeachWords)
-        }
-        
-        
-        return query.Build()
+
+	var query pqb.Sqlbuilder
+
+	query.
+		From(`myschema.books`).
+		Where(`myschema.books.deleted`, `=`, `0`).
+		Select(`myschema.books.id`, `myschema.books.title`)
+
+	if filters.IncludeAuthorDetails {
+		query.
+			LeftJoin(`myschema.authors`, `authors`, `myschema.books.author_id = authors.id`).
+			Select(`authors.name`, `authors.email`)
+	}
+
+	if len(filters.TitleSearch) > 0 {
+		titleSearchWords := strings.Fields(filters.TitleSearch)
+
+		query.WhereStringMatchAny(`myschema.books.title`, titleSearchWords)
+	}
+
+	if len(filters.AuthorSearch) > 0 {
+		authorSeachWords := strings.Fields(filters.AuthorSearch)
+
+		if !filters.IncludeAuthorDetails {
+			query.LeftJoin(`myschema.authors`, `authors`, `myschema.tasks.author_id = authors.id`)
+		}
+
+		query.WhereStringMatchAny(`authors.name`, authorSeachWords)
+	}
+
+	return query.Build()
 }
+
 ```
 Query Output:
 
-`SELECT "myschema"."books".*, "author"."name", "author"."email", "author"."phone" FROM "myschema"."books" LEFT JOIN "myschema"."authors" AS "authors" ON "myschema"."tasks"."author_id" = "authors"."id" WHERE "myschema"."books"."deleted" = '0' AND myschema.books.title ILIKE ANY (array['%revenge%', '%gopher%']) `
+`SELECT "myschema"."books"."id", "myschema"."books"."title", "authors"."name", "authors"."email" FROM "myschema"."books" LEFT JOIN "myschema"."authors" AS "authors" ON "myschema"."books"."author_id" = "authors"."id" WHERE "myschema"."books"."deleted" = '0' AND myschema.books.title ILIKE ANY (array['%revenge%', '%gopher%']) `
 
 
 

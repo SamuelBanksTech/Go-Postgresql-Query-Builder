@@ -38,6 +38,8 @@ type Sqlbuilder struct {
 	Distinct       bool
 }
 
+var queryArgs []string
+
 // From portion of query:
 // Usage "xxx.From(`myschema.mytable`)"
 func (s *Sqlbuilder) From(schemaTable string) *Sqlbuilder {
@@ -75,6 +77,28 @@ func (s *Sqlbuilder) Select(selectStmt ...string) *Sqlbuilder {
 	return s
 }
 
+// storeVal is a private function to add the values to an string slice that will be returned as the second param from build
+// this is to be passed as the second param in db connection this ensure security of prepared statements
+func (s *Sqlbuilder) storeVal(value string) string {
+	var returnPS string
+
+	queryArgs = append(queryArgs, pqbHelpers.SanitiseString(value))
+	s.Dialect = strings.ToLower(s.Dialect)
+
+	switch s.Dialect {
+	case "":
+		returnPS = "$" + strconv.Itoa(len(queryArgs))
+		break
+	case "postgres":
+		returnPS = "$" + strconv.Itoa(len(queryArgs))
+		break
+	default:
+		returnPS = "?"
+	}
+
+	return returnPS
+}
+
 // Where statement, accepts 3 arguments a column, and operator (can be "=", "!=", ">(=)", "<(=)", "BETWEEN" or any other valid postgres comparison operator)
 // You can add as many .Where clauses as you wish they will be treated as AND WHERE
 // Usage "xxx.From(`myschema.mytable`).Where(`name`, `=`, `superman`)"
@@ -92,16 +116,19 @@ func (s *Sqlbuilder) Where(column string, operator string, value string) *Sqlbui
 	switch operator {
 	case `BETWEEN`:
 		re := regexp.MustCompile("and|AND|And")
+		anre := regexp.MustCompile("[^a-zA-Z0-9]+")
 		vp := re.Split(value, -1)
 		value = ``
 
 		for _, v := range vp {
-			value += pqbHelpers.SanitiseString(`'`+strings.TrimSpace(v)+`'`) + ` AND `
+			//v can only be alphanum so for security we will strip any non alphanums
+			betweenVal := anre.ReplaceAllString(v, "")
+			value += pqbHelpers.SanitiseString(`'`+strings.TrimSpace(betweenVal)+`'`) + ` AND `
 		}
 
 		value = strings.TrimSuffix(value, ` AND `)
 	default:
-		value = pqbHelpers.SanitiseString(`'` + value + `'`)
+		value = s.storeVal(value)
 	}
 
 	s.whereStmt += s.formatSchema(column) + " " + operator + " " + value + ` AND `
@@ -124,16 +151,19 @@ func (s *Sqlbuilder) OrWhere(column string, operator string, value string) *Sqlb
 	switch operator {
 	case `BETWEEN`:
 		re := regexp.MustCompile("and|AND|And")
+		anre := regexp.MustCompile("[^a-zA-Z0-9]+")
 		vp := re.Split(value, -1)
 		value = ``
 
 		for _, v := range vp {
-			value += pqbHelpers.SanitiseString(`'`+strings.TrimSpace(v)+`'`) + ` AND `
+			//v can only be alphanum so for security we will strip any non alphanums
+			betweenVal := anre.ReplaceAllString(v, "")
+			value += pqbHelpers.SanitiseString(`'`+strings.TrimSpace(betweenVal)+`'`) + ` AND `
 		}
 
 		value = strings.TrimSuffix(value, ` AND `)
 	default:
-		value = pqbHelpers.SanitiseString(`'` + value + `'`)
+		value = s.storeVal(value)
 	}
 
 	s.whereStmt = strings.TrimSuffix(s.whereStmt, ` AND `)
@@ -143,6 +173,7 @@ func (s *Sqlbuilder) OrWhere(column string, operator string, value string) *Sqlb
 }
 
 // WhereRaw for unfiltered advanced where quires not covered in the above command
+// WARNING do not use for user input this could pose a security risk
 // Usage "xxx.From(`myschema.mytable`).WhereRaw(`WHERE SOME COMPLEX QUERY`)"
 func (s *Sqlbuilder) WhereRaw(whereStmt string) *Sqlbuilder {
 	s.whereStmt += whereStmt + ` AND `
@@ -287,24 +318,24 @@ func (s *Sqlbuilder) Reset() *Sqlbuilder {
 
 // Count allows the result of a query to be returned as a numeric amount rather than the actual rows
 // You can call count instead of build or you can call count then conditionally call build afterwards
-func (s *Sqlbuilder) Count() string {
-	sqlquery := s.Build()
+func (s *Sqlbuilder) Count() (string, []string) {
+	sqlquery, args := s.Build()
 
 	countQuery := `SELECT COUNT(*) AS rowcount FROM (` + sqlquery + `) AS rowdata`
 
-	return countQuery
+	return countQuery, args
 }
-func (s *Sqlbuilder) Exists() string {
-	sqlquery := s.Build()
+func (s *Sqlbuilder) Exists() (string, []string) {
+	sqlquery, args := s.Build()
 
 	existsQuery := `SELECT EXISTS (` + sqlquery + `)`
 
-	return existsQuery
+	return existsQuery, args
 }
 
 // Build is the main function of the query builder, it is the final function that takes all the query parts and puts them together
 // in a sanitised query ready for passing to a database connection
-func (s *Sqlbuilder) Build() string {
+func (s *Sqlbuilder) Build() (string, []string) {
 
 	//build selects
 	if s.deletefromStmt == `` {
@@ -326,7 +357,7 @@ func (s *Sqlbuilder) Build() string {
 		if s.deletefromStmt != `` {
 			s.string += `DELETE FROM ` + strings.TrimSuffix(s.deletefromStmt, `.`) + ` `
 		} else {
-			return ``
+			return ``, queryArgs
 		}
 	} else {
 		s.string += `FROM ` + strings.TrimSuffix(s.fromStmt, `.`) + ` `
@@ -354,7 +385,7 @@ func (s *Sqlbuilder) Build() string {
 
 	returnString := s.string
 
-	return returnString
+	return returnString, queryArgs
 }
 
 // BuildInsert is a very simple yet powerful feature that saves a lot of time, you simply pass a schema and table ref and a struct of data
