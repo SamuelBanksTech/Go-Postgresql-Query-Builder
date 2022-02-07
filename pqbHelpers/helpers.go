@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
@@ -55,22 +56,26 @@ func MapStruct(data interface{}) (dbCols []string, dbVals []string, error error)
 
 		var v string
 
-		switch value.Kind() {
-		case reflect.String:
+		switch value.Type().String() {
+		case "string":
 			v = "'" + SanitiseString(value.String()) + "'"
-		case reflect.Int:
+		case "int":
 			v = strconv.FormatInt(value.Int(), 10)
-		case reflect.Int8:
+		case "int8":
 			v = strconv.FormatInt(value.Int(), 10)
-		case reflect.Int32:
+		case "int32":
 			v = strconv.FormatInt(value.Int(), 10)
-		case reflect.Int64:
+		case "int64":
 			v = strconv.FormatInt(value.Int(), 10)
-		case reflect.Float64:
+		case "float64":
 			v = fmt.Sprintf("%f", value.Float())
-		case reflect.Float32:
+		case "float32":
 			v = fmt.Sprintf("%f", value.Float())
-		case reflect.Bool:
+		case "time.Time":
+			tr := value.Interface()
+			t := tr.(time.Time)
+			v = t.Format("2006-01-02 15:04:05")
+		case "bool":
 			if value.Bool() {
 				v = "TRUE"
 			} else {
