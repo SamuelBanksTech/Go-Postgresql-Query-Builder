@@ -36,9 +36,8 @@ type Sqlbuilder struct {
 	orderbyStmt    string
 	Dialect        string //Can be postgres or mysql atm (more to come)
 	Distinct       bool
+	queryArgs      []interface{}
 }
-
-var queryArgs []interface{}
 
 // From portion of query:
 // Usage "xxx.From(`myschema.mytable`)"
@@ -82,15 +81,15 @@ func (s *Sqlbuilder) Select(selectStmt ...string) *Sqlbuilder {
 func (s *Sqlbuilder) storeVal(value string) string {
 	var returnPS string
 
-	queryArgs = append(queryArgs, pqbHelpers.SanitiseString(value))
+	s.queryArgs = append(s.queryArgs, pqbHelpers.SanitiseString(value))
 	s.Dialect = strings.ToLower(s.Dialect)
 
 	switch s.Dialect {
 	case "":
-		returnPS = "$" + strconv.Itoa(len(queryArgs))
+		returnPS = "$" + strconv.Itoa(len(s.queryArgs))
 		break
 	case "postgres":
-		returnPS = "$" + strconv.Itoa(len(queryArgs))
+		returnPS = "$" + strconv.Itoa(len(s.queryArgs))
 		break
 	default:
 		returnPS = "?"
@@ -312,6 +311,7 @@ func (s *Sqlbuilder) Reset() *Sqlbuilder {
 	s.leftjoinStmt = ``
 	s.whereStmt = ``
 	s.offsetStmt = ``
+	s.queryArgs = nil
 
 	return s
 }
@@ -357,7 +357,7 @@ func (s *Sqlbuilder) Build() (string, []interface{}) {
 		if s.deletefromStmt != `` {
 			s.string += `DELETE FROM ` + strings.TrimSuffix(s.deletefromStmt, `.`) + ` `
 		} else {
-			return ``, queryArgs
+			return ``, s.queryArgs
 		}
 	} else {
 		s.string += `FROM ` + strings.TrimSuffix(s.fromStmt, `.`) + ` `
@@ -385,7 +385,7 @@ func (s *Sqlbuilder) Build() (string, []interface{}) {
 
 	returnString := s.string
 
-	return returnString, queryArgs
+	return returnString, s.queryArgs
 }
 
 // BuildInsert is a very simple yet powerful feature that saves a lot of time, you simply pass a schema and table ref and a struct of data
