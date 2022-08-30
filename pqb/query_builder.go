@@ -304,13 +304,14 @@ func (s *Sqlbuilder) OrderBy(column string, diretion string) *Sqlbuilder {
 func (s *Sqlbuilder) Reset() *Sqlbuilder {
 	s.string = ``
 	s.selectStmt = ``
-	s.orderbyStmt = ``
-	s.whereinStmt = ``
-	s.limitStmt = ``
-	s.fromStmt = ``
-	s.leftjoinStmt = ``
 	s.whereStmt = ``
+	s.whereinStmt = ``
+	s.fromStmt = ``
+	s.deletefromStmt = ``
+	s.leftjoinStmt = ``
+	s.limitStmt = ``
 	s.offsetStmt = ``
+	s.orderbyStmt = ``
 	s.queryArgs = nil
 
 	return s
