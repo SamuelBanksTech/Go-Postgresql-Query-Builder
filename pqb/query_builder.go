@@ -405,11 +405,11 @@ func (s *Sqlbuilder) BuildInsert(table string, data interface{}, additionalQuery
 
 // BuildUpdate like the buildinsert takes a table and a struct of data, however unlike buildinsert buildupdate will look to replace all
 // matching column names always best to ensure to use a Where query part to avoid accidental data loss
-func (s *Sqlbuilder) BuildUpdate(table string, data interface{}) (string, error) {
+func (s *Sqlbuilder) BuildUpdate(table string, data interface{}) (string, []interface{}, error) {
 
 	dbCols, dbVals, err := pqbHelpers.MapStruct(data)
 	if err != nil {
-		return "", err
+		return "", s.queryArgs, err
 	}
 
 	setString := ""
@@ -427,10 +427,10 @@ func (s *Sqlbuilder) BuildUpdate(table string, data interface{}) (string, error)
 			sql += `WHERE ` + strings.TrimSuffix(s.whereStmt, ` AND `) + ` `
 		}
 
-		return sql, nil
+		return sql, s.queryArgs, nil
 	}
 
-	return sql, errors.New("sql build failed")
+	return sql, s.queryArgs, errors.New("sql build failed")
 }
 
 // Based upon dialect this function will split a string schema-table reference into the correct
