@@ -1,8 +1,12 @@
 # Postgresql Query Builder for Go
 
-This query builder aims to make complex queries for postgres easier to breakdown, put together, and read. The project is very much in its infancy, there are some features missing and the next area of focus is on security and santisation. 
+This query builder aims to make complex queries for postgres easier to breakdown, put together, and read. The project is very much in its infancy, but is also in a very usable and functional state. 
 
-However please feel free to test, fork, submit PRs or whatever. 
+TODO list items include.
+
+- Tweak of the insert and update commands to pass back values separately. 
+
+However, please feel free to test, fork, or submit PRs. 
 
 :-)
 
