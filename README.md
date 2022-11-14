@@ -1,8 +1,12 @@
 # Postgresql Query Builder for Go
 
-This query builder aims to make complex queries for postgres easier to breakdown and put together. As it stands this is a new project and is very much in its infancy, there are some features missing and the next area of focus is on security and santisation. 
+This query builder aims to make complex queries for postgres easier to breakdown, put together, and read. The project is very much in its infancy, but is also in a very usable and functional state. 
 
-However please feel free to test, fork, submit PRs or whatever. 
+TODO list items include.
+
+- Tweak of the insert and update commands to pass back values separately. 
+
+However, please feel free to test, fork, or submit PRs. 
 
 :-)
 
@@ -57,9 +61,13 @@ func main() {
 	fmt.Println(name, weight)
 }
 ```
-Query Output:
+pgQuery Output:
 
-`SELECT "name", "weight" FROM "myschema"."widgets" WHERE "id" = '1'`
+`SELECT "name", "weight" FROM "myschema"."widgets" WHERE "id" = $1`
+
+queryArgs Output:
+
+[1]
 
 
 
@@ -111,9 +119,6 @@ func main() {
 	}
 }
 ```
-Query Output:
-
-`SELECT "myschema"."tasks"."task_details", "users"."name", "users"."email" FROM "myschema"."tasks" LEFT JOIN "myschema"."users" AS "users" ON "myschema"."tasks"."user_id" = "users"."id" WHERE "users"."active" = '1' AND "myschema"."tasks"."completed" = '0'`
 
 
 
@@ -218,9 +223,6 @@ func filterQuery(filters SearchFilters) (string, []interface{}) {
 
 
 ```
-Query Output:
-
-`SELECT "myschema"."books"."id", "myschema"."books"."title", "authors"."name", "authors"."email" FROM "myschema"."books" LEFT JOIN "myschema"."authors" AS "authors" ON "myschema"."books"."author_id" = "authors"."id" WHERE "myschema"."books"."deleted" = '0' AND myschema.books.title ILIKE ANY (array['%revenge%', '%gopher%']) `
 
 
 

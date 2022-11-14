@@ -74,7 +74,7 @@ func MapStruct(data interface{}) (dbCols []string, dbVals []string, error error)
 		case "time.Time":
 			tr := value.Interface()
 			t := tr.(time.Time)
-			v = t.Format("2006-01-02 15:04:05")
+			v = "'" + t.Format("2006-01-02 15:04:05") + "'"
 		case "bool":
 			if value.Bool() {
 				v = "TRUE"
