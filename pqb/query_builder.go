@@ -437,7 +437,6 @@ func (s *Sqlbuilder) BuildUpdate(table string, data interface{}) (string, []inte
 
 	defer s.Reset()
 
-
 	dbCols, dbVals, err := pqbHelpers.MapStruct(data)
 	if err != nil {
 		return "", s.queryArgs, err
