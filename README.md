@@ -6,10 +6,6 @@
 
 This query builder aims to make complex queries for postgres easier to breakdown, put together, and read. The project is very much in its infancy, but is also in a very usable and functional state. 
 
-TODO list items include.
-
-- Tweak of the insert and update commands to pass back values separately. 
-
 However, please feel free to test, fork, or submit PRs. 
 
 :-)
