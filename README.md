@@ -1,5 +1,9 @@
 # Postgresql Query Builder for Go
 
+[![GoReportCard](https://goreportcard.com/badge/github.com/SamuelBanksTech/Go-Postgresql-Query-Builder)](https://goreportcard.com/report/github.com/SamuelBanksTech/Go-Postgresql-Query-Builder)
+[![made-with-Go](https://img.shields.io/badge/Made%20with-Go-1f425f.svg)](https://go.dev/)
+[![GoDoc reference example](https://img.shields.io/badge/godoc-reference-blue.svg)](https://pkg.go.dev/github.com/SamuelBanksTech/Go-Postgresql-Query-Builder/pqb)
+
 This query builder aims to make complex queries for postgres easier to breakdown, put together, and read. The project is very much in its infancy, but is also in a very usable and functional state. 
 
 TODO list items include.
