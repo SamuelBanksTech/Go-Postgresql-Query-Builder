@@ -47,14 +47,6 @@ func (s *Sqlbuilder) From(schemaTable string) *Sqlbuilder {
 	return s
 }
 
-// DeleteFrom If deleteing from a table use this instead of the above From command
-// Usage "xxx.DeleteFrom(`myschema.mytable`)"
-func (s *Sqlbuilder) DeleteFrom(schemaTable string) *Sqlbuilder {
-	s.deletefromStmt = s.formatSchema(schemaTable)
-
-	return s
-}
-
 // SelectRaw query, for use when doing advanced selects (usually CASE WHEN etc) without any helper intervention
 // Usage "xxx.From(`myschema.mytable`).SelectRaw(`CASE blah blah blah`)"
 func (s *Sqlbuilder) SelectRaw(selectStmt string) *Sqlbuilder {
@@ -72,6 +64,14 @@ func (s *Sqlbuilder) Select(selectStmt ...string) *Sqlbuilder {
 	for _, ss := range selectStmt {
 		s.selectStmt += s.formatSchema(ss) + `, `
 	}
+
+	return s
+}
+
+// DeleteFrom If deleteing from a table use this instead of the above From command
+// Usage "xxx.DeleteFrom(`myschema.mytable`)"
+func (s *Sqlbuilder) DeleteFrom(schemaTable string) *Sqlbuilder {
+	s.deletefromStmt = s.formatSchema(schemaTable)
 
 	return s
 }
@@ -179,33 +179,51 @@ func (s *Sqlbuilder) WhereRaw(whereStmt string) *Sqlbuilder {
 	return s
 }
 
-// WhereIn Accepts Slice of INT, FLOAT32, STRING, or a simple comma separated STRING
+// WhereIn Accepts Slice of INT, FLOAT32, FLOAT64, STRING
 // Usage "xxx.From(`myschema.mytable`).WhereIn(`age`, []int{20, 25, 30 ,35})"
 func (s *Sqlbuilder) WhereIn(column string, params interface{}) *Sqlbuilder {
 
 	output := ""
 
 	switch foo := params.(type) {
-	case []int, []float32:
-		output += "(" + strings.Trim(strings.Join(strings.Fields(fmt.Sprint(foo)), ", "), "[]") + ")"
-		break
-	case []string:
+	case []int:
 		output += "("
 		for _, v := range foo {
-			output += "'" + pqbHelpers.SanitiseString(v) + "', "
+			output += s.storeVal(strconv.Itoa(v)) + ", "
 		}
 		output = strings.TrimSuffix(output, ", ")
 		output += ")"
 		break
-	case string:
-		output = "(" + pqbHelpers.SanitiseString(foo) + ")"
+	case []float32:
+		output += "("
+		for _, v := range foo {
+			output += s.storeVal(fmt.Sprintf("%f", v)) + ", "
+		}
+		output = strings.TrimSuffix(output, ", ")
+		output += ")"
+		break
+	case []float64:
+		output += "("
+		for _, v := range foo {
+			output += s.storeVal(fmt.Sprintf("%f", v)) + ", "
+		}
+		output = strings.TrimSuffix(output, ", ")
+		output += ")"
+		break
+	case []string:
+		output += "("
+		for _, v := range foo {
+			output += s.storeVal(v) + ", "
+		}
+		output = strings.TrimSuffix(output, ", ")
+		output += ")"
 		break
 	default:
 		output = ""
 	}
 
 	if output != "" {
-		s.WhereRaw(column + ` IN ` + output)
+		s.WhereRaw(s.formatSchema(column) + ` IN ` + output)
 	}
 
 	return s
@@ -220,13 +238,13 @@ func (s *Sqlbuilder) WhereStringMatchAny(column string, params []string) *Sqlbui
 
 	output += "(array["
 	for _, v := range params {
-		output += "'%" + pqbHelpers.SanitiseString(strings.TrimSpace(v)) + "%', "
+		output += s.storeVal(`%`+pqbHelpers.SanitiseString(strings.TrimSpace(v))+`%`) + `, `
 	}
 	output = strings.TrimSuffix(output, ", ")
 	output += "])"
 
 	if output != "" {
-		s.WhereRaw(column + ` ILIKE ANY ` + output)
+		s.WhereRaw(s.formatSchema(column) + ` ILIKE ANY ` + output)
 	}
 
 	return s
@@ -239,15 +257,15 @@ func (s *Sqlbuilder) WhereStringMatchAll(column string, params []string) *Sqlbui
 
 	output := ""
 
-	output += "'"
+	output += "(array["
 	for _, v := range params {
-		output += "%" + pqbHelpers.SanitiseString(strings.TrimSpace(v)) + "% "
+		output += s.storeVal(`%`+pqbHelpers.SanitiseString(strings.TrimSpace(v))+`%`) + `, `
 	}
-	output = strings.TrimSuffix(output, " ")
-	output += "'"
+	output = strings.TrimSuffix(output, ", ")
+	output += "])"
 
 	if output != "" {
-		s.WhereRaw(column + ` ILIKE ` + output)
+		s.WhereRaw(s.formatSchema(column) + ` ILIKE ALL ` + output)
 	}
 
 	return s
@@ -304,13 +322,14 @@ func (s *Sqlbuilder) OrderBy(column string, diretion string) *Sqlbuilder {
 func (s *Sqlbuilder) Reset() *Sqlbuilder {
 	s.string = ``
 	s.selectStmt = ``
-	s.orderbyStmt = ``
-	s.whereinStmt = ``
-	s.limitStmt = ``
-	s.fromStmt = ``
-	s.leftjoinStmt = ``
 	s.whereStmt = ``
+	s.whereinStmt = ``
+	s.fromStmt = ``
+	s.deletefromStmt = ``
+	s.leftjoinStmt = ``
+	s.limitStmt = ``
 	s.offsetStmt = ``
+	s.orderbyStmt = ``
 	s.queryArgs = nil
 
 	return s
@@ -385,37 +404,49 @@ func (s *Sqlbuilder) Build() (string, []interface{}) {
 
 	returnString := s.string
 
-	return returnString, s.queryArgs
+	return strings.TrimSpace(returnString), s.queryArgs
 }
 
 // BuildInsert is a very simple yet powerful feature that saves a lot of time, you simply pass a schema and table ref and a struct of data
 // the builder will automatically build the insert based on the struct value names and values if the field tag of "pqb" is used one can
 // override the struct name
-func (s *Sqlbuilder) BuildInsert(table string, data interface{}, additionalQuery string) (string, error) {
+func (s *Sqlbuilder) BuildInsert(table string, data interface{}, additionalQuery string) (string, []interface{}, error) {
+
+	defer s.Reset()
+
 	dbCols, dbVals, err := pqbHelpers.MapStruct(data)
 	if err != nil {
-		return "", err
+		return "", s.queryArgs, err
 	}
 
-	sql := "INSERT INTO " + s.formatSchema(table) + " (" + strings.Join(dbCols, ", ") + ") VALUES (" + strings.Join(dbVals, ", ") + ") " + additionalQuery
+	insertString := ``
 
-	return sql, nil
+	for _, val := range dbVals {
+		insertString += s.storeVal(val) + `, `
+	}
+	insertString = strings.TrimSuffix(insertString, `, `)
+
+	sql := "INSERT INTO " + s.formatSchema(table) + " (" + strings.Join(dbCols, ", ") + ") VALUES (" + insertString + ") " + additionalQuery
+
+	return sql, s.queryArgs, nil
 }
 
 // BuildUpdate like the buildinsert takes a table and a struct of data, however unlike buildinsert buildupdate will look to replace all
 // matching column names always best to ensure to use a Where query part to avoid accidental data loss
-func (s *Sqlbuilder) BuildUpdate(table string, data interface{}) (string, error) {
+func (s *Sqlbuilder) BuildUpdate(table string, data interface{}) (string, []interface{}, error) {
+
+	defer s.Reset()
 
 	dbCols, dbVals, err := pqbHelpers.MapStruct(data)
 	if err != nil {
-		return "", err
+		return "", s.queryArgs, err
 	}
 
 	setString := ""
 	sql := ""
 
 	for i, col := range dbCols {
-		setString += col + ` = ` + dbVals[i] + `, `
+		setString += col + ` = ` + s.storeVal(dbVals[i]) + `, `
 	}
 	setString = strings.TrimSuffix(setString, `, `) + ` `
 
@@ -426,10 +457,10 @@ func (s *Sqlbuilder) BuildUpdate(table string, data interface{}) (string, error)
 			sql += `WHERE ` + strings.TrimSuffix(s.whereStmt, ` AND `) + ` `
 		}
 
-		return sql, nil
+		return sql, s.queryArgs, nil
 	}
 
-	return sql, errors.New("sql build failed")
+	return sql, s.queryArgs, errors.New("sql build failed")
 }
 
 // Based upon dialect this function will split a string schema-table reference into the correct
