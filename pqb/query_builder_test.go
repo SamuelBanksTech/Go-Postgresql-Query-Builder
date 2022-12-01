@@ -366,7 +366,7 @@ func TestSqlbuilder_BuildInsert_and_mapping(t *testing.T) {
 	}
 
 	wantSql := `INSERT INTO "myschema"."mytable" ("string_col", "scnn", "int_col", "int8_col", "int32_col", "int64_col", "float64_col", "float32_col", "time_col", "bool_col") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT DO NOTHING`
-	wantArgs := []string{`'mystring'`, `'myscnnstring'`, `1`, `2`, `3`, `4`, `1.100000`, `1.200000`, nowTime.Format("2006-01-02 15:04:05"), `TRUE`}
+	wantArgs := []string{`'mystring'`, `'myscnnstring'`, `1`, `2`, `3`, `4`, `1.100000`, `1.200000`, `'` + nowTime.Format("2006-01-02 15:04:05") + `'`, `TRUE`}
 
 	if gotSql != wantSql {
 		t.Errorf("got %v \nwanted %v", gotSql, wantSql)
@@ -378,7 +378,7 @@ func TestSqlbuilder_BuildInsert_and_mapping(t *testing.T) {
 
 	for i, v := range wantArgs {
 		if gotArgs[i] != v {
-			t.Errorf("argument mismatch got ")
+			t.Errorf("argument mismatch got %v wanted %v", gotArgs[i], v)
 		}
 	}
 }
